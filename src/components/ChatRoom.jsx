@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { db } from "../lib/firebase";
+import { Link } from "react-router-dom";
 import {
   collection,
   query,
@@ -8,9 +9,6 @@ import {
   addDoc,
   serverTimestamp,
 } from "firebase/firestore";
-
-
-
 
 export default function ChatRoom({ user, onLogout }) {
   const [messages, setMessages] = useState([]);
@@ -67,6 +65,15 @@ useEffect(() => {
         <h1 className="text-2xl font-bold text-center">
           💬 ChatBar - Mesa {user.table}
         </h1>
+        <div className="flex justify-between items-center mb-2">
+  <h1 className="text-2xl font-bold">💬 ChatBar - Mesa {user.table}</h1>
+  <Link
+    to="/perfil"
+    className="text-sm bg-yellow-500 text-black px-3 py-1 rounded hover:bg-yellow-600"
+  >
+    Meu Perfil
+  </Link>
+</div>
         <button
           onClick={onLogout}
           className="text-sm text-blue-400 hover:underline"
