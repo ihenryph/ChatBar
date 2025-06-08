@@ -66,7 +66,7 @@ useEffect(() => {
           💬 ChatBar - Mesa {user.table}
         </h1>
         <div className="flex justify-between items-center mb-2">
-  <h1 className="text-2xl font-bold">💬 ChatBar - Mesa {user.table}</h1>
+  {/* <h1 className="text-2xl font-bold">💬 Chat26Bar - Mesa {user.table}</h1> */}
   <Link
     to="/perfil"
     className="text-sm bg-yellow-500 text-black px-3 py-1 rounded hover:bg-yellow-600"
@@ -147,6 +147,15 @@ useEffect(() => {
           Enviar
         </button>
       </form>
+      <div className="mt-2 text-center">
+  <button
+    onClick={() => onChangeScreen("radar")}
+    className="bg-purple-600 px-4 py-2 rounded hover:bg-purple-700"
+  >
+    Ver Radar
+  </button>
+</div>
+
     </div>
   );
 }

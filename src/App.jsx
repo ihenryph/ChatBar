@@ -14,17 +14,26 @@ function App() {
   }
 
   return (
-    <div className="bg-gray-900 min-h-screen text-white">
-      <ChatRoom user={user} onLogout={() => { setUser(null); setScreen("entry"); }} />
-      <div className="fixed bottom-4 right-4">
-        <button
-          onClick={() => setScreen("radar")}
-          className="bg-purple-600 px-4 py-2 rounded hover:bg-purple-700"
-        >
-          Ver Radar
-        </button>
-      </div>
-    </div>
+    <ChatRoom
+  user={user}
+  onLogout={() => {
+    setUser(null);
+    setScreen("entry");
+  }}
+  onChangeScreen={(screen) => setScreen(screen)} // ← aqui!
+/>
+
+    // <div className="bg-gray-900 min-h-screen text-white">
+    //   <ChatRoom user={user} onLogout={() => { setUser(null); setScreen("entry"); }} />
+    //   <div className="fixed bottom-4 right-4">
+    //     <button
+    //       onClick={() => setScreen("radar")}
+    //       className="bg-purple-600 px-4 py-2 rounded hover:bg-purple-700"
+    //     >
+    //       Ver Radar
+    //     </button>
+    //   </div>
+    // </div>
   );
 }
 
