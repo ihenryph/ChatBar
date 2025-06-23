@@ -6,6 +6,7 @@ import Votacao from "./pages/Votacao";
 import Entry from "./pages/Entry";
 import RadarSocial from "./pages/RadarSocial";
 import Sorteio from "./pages/Sorteio";
+import Profile from "./pages/Profile";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -38,6 +39,13 @@ function App() {
             Votação
           </button>
           <button
+  className="bg-purple-600 px-3 py-1 rounded"
+  onClick={() => setTelaAtual("perfil")}
+>
+  Meu Perfil
+</button>
+
+          <button
             className="bg-red-600 px-3 py-1 rounded"
             onClick={() => setUser(null)}
           >
@@ -58,6 +66,9 @@ function App() {
       {telaAtual === "votacao" && <Votacao user={user} />}
       {telaAtual === "radar" && <RadarSocial user={user} />}
       {telaAtual === "sorteio" && <Sorteio user={user} />}
+      {telaAtual === "perfil" && (
+  <Profile user={user} onBack={() => setTelaAtual("chat")} />
+)}
 
     </div>
   );
