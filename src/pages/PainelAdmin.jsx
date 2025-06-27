@@ -1,6 +1,6 @@
 //NOVO PROJETO SEM CHAT
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { db } from "../lib/firebase";
 //import { collection, onSnapshot } from "firebase/firestore";
 import { collection, getDocs } from "firebase/firestore";
@@ -133,4 +133,3 @@ useEffect(() => {
     </div>
   );
 }
-
