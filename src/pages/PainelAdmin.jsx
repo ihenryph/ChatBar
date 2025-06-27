@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { db } from "../lib/firebase";
-import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, onSnapshot, query, orderBy } from "firebase/firestore";
 
 export default function PainelAdmin() {
   const [usuarios, setUsuarios] = useState([]);
   const [tela, setTela] = useState("home");
   const [sorteioData, setSorteioData] = useState({ participantes: [], ganhador: null });
+  const [messages, setMessages] = useState([]);
+  const [curtidas, setCurtidas] = useState([]);
 
   useEffect(() => {
     const fetchUsuarios = async () => {
@@ -31,8 +33,37 @@ export default function PainelAdmin() {
       }
     };
 
+    // Observar mensagens em tempo real
+    const unsubMessages = onSnapshot(
+      query(collection(db, "messages"), orderBy("timestamp")),
+      (snapshot) => {
+        const msgs = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setMessages(msgs);
+      }
+    );
+
+    // Observar curtidas em tempo real
+    const unsubCurtidas = onSnapshot(
+      collection(db, "curtidas"),
+      (snapshot) => {
+        const curtidasList = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setCurtidas(curtidasList);
+      }
+    );
+
     fetchUsuarios();
     fetchSorteio();
+
+    return () => {
+      unsubMessages();
+      unsubCurtidas();
+    };
   }, []);
 
   const handleReiniciarSorteio = async () => {
@@ -72,6 +103,75 @@ export default function PainelAdmin() {
       alert("Erro ao realizar sorteio. Tente novamente.");
     }
   };
+
+  // Calcular atividade das mesas
+  const calcularAtividadeMesas = () => {
+    const atividadePorMesa = {};
+    
+    // Contar mensagens por mesa
+    messages.forEach(msg => {
+      if (msg.table) {
+        atividadePorMesa[msg.table] = (atividadePorMesa[msg.table] || 0) + 1;
+      }
+    });
+
+    // Contar curtidas por mesa
+    curtidas.forEach(curtida => {
+      const usuarioDe = usuarios.find(u => u.name === curtida.de);
+      const usuarioPara = usuarios.find(u => u.name === curtida.para);
+      
+      if (usuarioDe) {
+        atividadePorMesa[usuarioDe.table] = (atividadePorMesa[usuarioDe.table] || 0) + 0.5;
+      }
+      if (usuarioPara) {
+        atividadePorMesa[usuarioPara.table] = (atividadePorMesa[usuarioPara.table] || 0) + 0.5;
+      }
+    });
+
+    return Object.entries(atividadePorMesa)
+      .map(([mesa, atividade]) => ({ mesa, atividade }))
+      .sort((a, b) => b.atividade - a.atividade);
+  };
+
+  // Calcular perfis mais ativos
+  const calcularPerfisAtivos = () => {
+    const atividadePorUsuario = {};
+    
+    // Contar mensagens por usuário
+    messages.forEach(msg => {
+      if (msg.name) {
+        atividadePorUsuario[msg.name] = (atividadePorUsuario[msg.name] || 0) + 1;
+      }
+    });
+
+    // Contar curtidas enviadas
+    curtidas.forEach(curtida => {
+      atividadePorUsuario[curtida.de] = (atividadePorUsuario[curtida.de] || 0) + 1;
+    });
+
+    return Object.entries(atividadePorUsuario)
+      .map(([nome, atividade]) => {
+        const usuario = usuarios.find(u => u.name === nome);
+        return { 
+          nome, 
+          atividade, 
+          mesa: usuario?.table || 'N/A',
+          status: usuario?.status || 'N/A'
+        };
+      })
+      .sort((a, b) => b.atividade - a.atividade)
+      .slice(0, 10); // Top 10
+  };
+
+  const mesasAtivas = calcularAtividadeMesas();
+  const perfisAtivos = calcularPerfisAtivos();
+  const maxAtividade = Math.max(...mesasAtivas.map(m => m.atividade), 1);
+
+  // Calcular estatísticas gerais
+  const totalMensagens = messages.length;
+  const totalCurtidas = curtidas.length;
+  const usuariosSolteiros = usuarios.filter(u => u.status === "Solteiro").length;
+  const usuariosComprometidos = usuarios.filter(u => u.status === "Comprometido" || u.status === "Casado").length;
 
   return (
     <div className="bg-gray-900 min-h-screen text-white p-4">
@@ -127,7 +227,7 @@ export default function PainelAdmin() {
                       <p><strong>Nome:</strong> {u.name}</p>
                       <p><strong>Mesa:</strong> {u.table}</p>
                       <p><strong>Status:</strong> {u.status}</p>
-                      <p><strong>Hora:</strong> {u.timestamp?.toDate().toLocaleTimeString()}</p>
+                      <p><strong>Hora:</strong> {u.timestamp?.toDate?.().toLocaleTimeString() || 'N/A'}</p>
                     </div>
                   ))}
                 </ul>
@@ -135,12 +235,13 @@ export default function PainelAdmin() {
             </div>
 
             <div className="bg-gray-800 p-4 rounded shadow">
-              <h2 className="text-xl font-bold mb-2">📊 Votação de Músicas</h2>
-              <ul className="text-gray-300">
-                <li>🔹 Evidências - 5 votos</li>
-                <li>🔹 Asa Branca - 3 votos</li>
-                <li>🔹 Whisky a Go Go - 2 votos</li>
-              </ul>
+              <h2 className="text-xl font-bold mb-2">📊 Estatísticas Gerais</h2>
+              <div className="space-y-2 text-gray-300">
+                <p>💬 Total de mensagens: {totalMensagens}</p>
+                <p>💖 Total de curtidas: {totalCurtidas}</p>
+                <p>💚 Solteiros: {usuariosSolteiros}</p>
+                <p>💙 Comprometidos: {usuariosComprometidos}</p>
+              </div>
             </div>
 
             <div className="bg-gray-800 p-4 rounded shadow">
@@ -168,9 +269,21 @@ export default function PainelAdmin() {
             </div>
 
             <div className="bg-gray-800 p-4 rounded shadow">
-              <h2 className="text-xl font-bold mb-2">🔥 Radar Social</h2>
-              <p className="text-gray-300">Solteiros: 5 | Comprometidos: 2</p>
-              <p className="text-gray-300 mt-1">Mesa 3 parece estar animada 👀</p>
+              <h2 className="text-xl font-bold mb-2">🔥 Top 3 Mesas Ativas</h2>
+              {mesasAtivas.length === 0 ? (
+                <p className="text-gray-400">Nenhuma atividade registrada.</p>
+              ) : (
+                <div className="space-y-2">
+                  {mesasAtivas.slice(0, 3).map((mesa, idx) => (
+                    <div key={mesa.mesa} className="flex items-center justify-between">
+                      <span className="text-gray-300">
+                        {idx === 0 && "🥇"} {idx === 1 && "🥈"} {idx === 2 && "🥉"} Mesa {mesa.mesa}
+                      </span>
+                      <span className="text-yellow-400 font-bold">{mesa.atividade} pts</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -237,9 +350,142 @@ export default function PainelAdmin() {
         )}
 
         {tela === "radar" && (
-          <div className="bg-gray-800 p-6 rounded shadow">
-            <h2 className="text-xl font-bold mb-4">🔥 Radar Social</h2>
-            <p>Gráfico de calor das mesas mais movimentadas e perfis ativos.</p>
+          <div className="space-y-6">
+            {/* Gráfico de Mesas Mais Movimentadas */}
+            <div className="bg-gray-800 p-6 rounded shadow">
+              <h2 className="text-xl font-bold mb-4">🔥 Mesas Mais Movimentadas</h2>
+              
+              {mesasAtivas.length === 0 ? (
+                <p className="text-gray-400">Nenhuma atividade registrada ainda.</p>
+              ) : (
+                <div className="space-y-3">
+                  {mesasAtivas.map((mesa, idx) => (
+                    <div key={mesa.mesa} className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold">Mesa {mesa.mesa}</span>
+                        <span className="text-yellow-400">{mesa.atividade} pontos</span>
+                      </div>
+                      
+                      {/* Barra de progresso visual */}
+                      <div className="w-full bg-gray-700 rounded-full h-4">
+                        <div 
+                          className={`h-4 rounded-full transition-all duration-500 ${
+                            idx === 0 ? 'bg-red-500' : 
+                            idx === 1 ? 'bg-orange-500' : 
+                            idx === 2 ? 'bg-yellow-500' : 
+                            'bg-blue-500'
+                          }`}
+                          style={{ 
+                            width: `${(mesa.atividade / maxAtividade) * 100}%` 
+                          }}
+                        ></div>
+                      </div>
+                      
+                      {/* Indicador de calor */}
+                      <div className="flex items-center gap-2 text-sm">
+                        <span>🌡️ Nível de atividade:</span>
+                        <span className={`font-bold ${
+                          mesa.atividade >= maxAtividade * 0.8 ? 'text-red-400' :
+                          mesa.atividade >= maxAtividade * 0.5 ? 'text-orange-400' :
+                          mesa.atividade >= maxAtividade * 0.3 ? 'text-yellow-400' :
+                          'text-blue-400'
+                        }`}>
+                          {mesa.atividade >= maxAtividade * 0.8 ? 'MUITO QUENTE 🔥' :
+                           mesa.atividade >= maxAtividade * 0.5 ? 'QUENTE 🌶️' :
+                           mesa.atividade >= maxAtividade * 0.3 ? 'MORNO 🌤️' :
+                           'FRIO ❄️'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Perfis Mais Ativos */}
+            <div className="bg-gray-800 p-6 rounded shadow">
+              <h2 className="text-xl font-bold mb-4">👑 Perfis Mais Ativos</h2>
+              
+              {perfisAtivos.length === 0 ? (
+                <p className="text-gray-400">Nenhuma atividade registrada ainda.</p>
+              ) : (
+                <div className="grid gap-3 md:grid-cols-2">
+                  {perfisAtivos.map((perfil, idx) => (
+                    <div key={perfil.nome} className="bg-gray-700 p-4 rounded border-l-4 border-blue-500">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          {idx < 3 && (
+                            <span className="text-lg">
+                              {idx === 0 && "👑"} {idx === 1 && "🥈"} {idx === 2 && "🥉"}
+                            </span>
+                          )}
+                          <span className="font-semibold">{perfil.nome}</span>
+                        </div>
+                        <span className="bg-blue-600 px-2 py-1 rounded text-sm">
+                          {perfil.atividade} pts
+                        </span>
+                      </div>
+                      
+                      <div className="text-sm text-gray-300 space-y-1">
+                        <p>📍 Mesa: {perfil.mesa}</p>
+                        <p>💝 Status: {perfil.status}</p>
+                        <div className="flex items-center gap-1">
+                          <span>⚡ Atividade:</span>
+                          <div className="flex-1 bg-gray-600 rounded-full h-2">
+                            <div 
+                              className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-500"
+                              style={{ 
+                                width: `${Math.min((perfil.atividade / Math.max(...perfisAtivos.map(p => p.atividade))) * 100, 100)}%` 
+                              }}
+                            ></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Resumo da Atividade Social */}
+            <div className="bg-gray-800 p-6 rounded shadow">
+              <h2 className="text-xl font-bold mb-4">📊 Resumo da Atividade Social</h2>
+              
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="bg-blue-900 p-4 rounded text-center">
+                  <div className="text-2xl font-bold text-blue-300">{totalMensagens}</div>
+                  <div className="text-sm text-blue-200">Mensagens Enviadas</div>
+                </div>
+                
+                <div className="bg-pink-900 p-4 rounded text-center">
+                  <div className="text-2xl font-bold text-pink-300">{totalCurtidas}</div>
+                  <div className="text-sm text-pink-200">Curtidas Trocadas</div>
+                </div>
+                
+                <div className="bg-green-900 p-4 rounded text-center">
+                  <div className="text-2xl font-bold text-green-300">{usuarios.length}</div>
+                  <div className="text-sm text-green-200">Usuários Ativos</div>
+                </div>
+              </div>
+
+              <div className="mt-4 p-4 bg-gray-700 rounded">
+                <h3 className="font-semibold mb-2">🎯 Insights do Ambiente</h3>
+                <ul className="text-sm text-gray-300 space-y-1">
+                  {mesasAtivas.length > 0 && (
+                    <li>🔥 Mesa {mesasAtivas[0].mesa} está dominando as conversas!</li>
+                  )}
+                  {perfisAtivos.length > 0 && (
+                    <li>👑 {perfisAtivos[0].nome} é o usuário mais ativo da noite</li>
+                  )}
+                  {usuariosSolteiros > usuariosComprometidos && (
+                    <li>💚 Ambiente com mais solteiros - clima de paquera!</li>
+                  )}
+                  {totalCurtidas > totalMensagens * 0.3 && (
+                    <li>💖 Muita interação romântica rolando!</li>
+                  )}
+                </ul>
+              </div>
+            </div>
           </div>
         )}
       </section>
