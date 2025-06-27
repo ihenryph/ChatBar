@@ -23,8 +23,7 @@ function App() {
 
   return (
     <div className="bg-gray-900 min-h-screen text-white p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-xl font-bold">ChatBar - Mesa {user.table}</h1>
+      <div className="flex justify-center items-center mb-4">
         <div className="space-x-2">
           <button
             className="bg-blue-600 px-3 py-1 rounded"
