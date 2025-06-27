@@ -79,7 +79,7 @@ useEffect(() => {
     <p><strong>Nome:</strong> {u.name}</p>
     <p><strong>Mesa:</strong> {u.table}</p>
     <p><strong>Status:</strong> {u.status}</p>
-    <p><strong>Hora:</strong> {u.timestamp}</p>
+    <p><strong>Hora:</strong> {u.timestamp?.toDate().toLocaleTimeString()}</p>
   </div>
 ))}
                 </ul>
